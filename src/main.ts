@@ -591,7 +591,7 @@ class SetupModal extends Modal {
     });
     contentEl.createEl("p", {
       cls: "lqmd-howto",
-      text: "Once ready, open semantic search with Ctrl/Cmd+Shift+S, the ribbon magnifying-glass icon, the QMD status bar item, or the command palette command “Semantic search”."
+      text: "Once ready, open semantic search with the ribbon magnifying-glass icon, the QMD status bar item, or the command palette command “Semantic search”. You can assign Ctrl/Cmd+Shift+S as a hotkey in Obsidian's hotkey settings."
     });
 
     contentEl.createDiv({ cls: "lqmd-command", text: `QMD runner: ${this.plugin.qmdDisplayName()}` });
@@ -699,7 +699,7 @@ class SetupModal extends Modal {
         await this.refreshSummary();
       });
       await this.refreshSummary();
-      this.updateProgress({ message: "Semantic search is ready. Press Ctrl/Cmd+Shift+S or click Open search.", percent: 100 });
+      this.updateProgress({ message: "Semantic search is ready. Click Open search, use the ribbon icon, or run “Semantic search” from the command palette.", percent: 100 });
       this.prepared = true;
       if (this.startButton) {
         this.startButton.disabled = false;
@@ -746,7 +746,7 @@ class SettingsTab extends PluginSettingTab {
 
     containerEl.createEl("h2", { text: "Local QMD Semantic Search" });
     containerEl.createEl("p", {
-      text: "Requirement: install QMD locally first, e.g. `bun install -g @tobilu/qmd` or `npm install -g @tobilu/qmd`. This plugin only starts the local qmd executable. It does not use HTTP APIs or send vault contents anywhere. Embeddings are created by QMD, not by this plugin. Open search with Ctrl/Cmd+Shift+S, the ribbon icon, the status bar item, or the command palette."
+      text: "Requirement: install QMD locally first, e.g. `bun install -g @tobilu/qmd` or `npm install -g @tobilu/qmd`. This plugin only starts the local qmd executable. It does not use HTTP APIs or send vault contents anywhere. Embeddings are created by QMD, not by this plugin. Open search with the ribbon icon, the status bar item, or the command palette."
     });
 
     new Setting(containerEl).setName("Status").setHeading();
@@ -873,7 +873,6 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     this.addCommand({
       id: "semantic-search",
       name: "Semantic search",
-      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "s" }],
       callback: () => this.openSearch()
     });
 

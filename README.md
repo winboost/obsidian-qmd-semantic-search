@@ -12,7 +12,7 @@ The plugin is intentionally small: it provides the Obsidian UI, vault setup flow
 - Vault-local QMD database/config.
 - Click a result to open the matching note and jump near the relevant line.
 - Setup modal with progress, cancel/resume, and clear status.
-- Default hotkey: `Ctrl/Cmd + Shift + S`.
+- Suggested hotkey: `Ctrl/Cmd + Shift + S` (assign it in Obsidian hotkey settings if you want it).
 
 ## Requirements
 
@@ -48,7 +48,7 @@ So the plugin can still work even if the `qmd` shim itself is unreliable.
 
 ## Installation
 
-Download the latest `obsidian-qmd.zip` from the [GitHub Releases page](https://github.com/winboost/obsidian-qmd-semantic-search/releases), then extract it into your vault so the folder is named `obsidian-qmd`.
+Download the latest `qmd-semantic-search.zip` from the [GitHub Releases page](https://github.com/winboost/obsidian-qmd-semantic-search/releases), then extract it into your vault so the folder is named `qmd-semantic-search`.
 
 The release contains these three production files:
 
@@ -61,22 +61,22 @@ styles.css
 Alternatively, build from source and copy those same three files into your vault:
 
 ```text
-<your-vault>/.obsidian/plugins/obsidian-qmd/
+<your-vault>/.obsidian/plugins/qmd-semantic-search/
 ```
 
 Final structure:
 
 ```text
-<your-vault>/.obsidian/plugins/obsidian-qmd/main.js
-<your-vault>/.obsidian/plugins/obsidian-qmd/manifest.json
-<your-vault>/.obsidian/plugins/obsidian-qmd/styles.css
+<your-vault>/.obsidian/plugins/qmd-semantic-search/main.js
+<your-vault>/.obsidian/plugins/qmd-semantic-search/manifest.json
+<your-vault>/.obsidian/plugins/qmd-semantic-search/styles.css
 ```
 
 Then in Obsidian:
 
 1. Open **Settings → Community plugins**.
 2. Disable **Restricted mode** if needed.
-3. Enable **Obsidian QMD Local Search**.
+3. Enable **Obsidian QMD Semantic Search**.
 
 ## First-run setup
 
@@ -106,10 +106,11 @@ You can cancel during preparation. Partial progress is kept, and you can resume 
 
 After setup, open semantic search with any of these:
 
-- `Ctrl/Cmd + Shift + S`
 - the ribbon magnifying-glass icon
 - the bottom status bar item
 - command palette → **Semantic search**
+
+Optional: assign `Ctrl/Cmd + Shift + S` to **Semantic search** in Obsidian hotkey settings.
 
 Type a query. The plugin shows fast keyword results first and then tries semantic refinement briefly.
 
@@ -132,7 +133,7 @@ That is a deliberate performance/privacy/UX choice: no background indexing, no h
 When you add or edit notes and want search to include them, open the command palette with `Ctrl/Cmd + P` and run:
 
 ```text
-Obsidian QMD Local Search: Refresh semantic index now
+Obsidian QMD Semantic Search: Refresh semantic index now
 ```
 
 Or open plugin settings and click:
@@ -153,8 +154,8 @@ qmd embed
 The vault-specific QMD database and config are stored inside the vault plugin folder:
 
 ```text
-<your-vault>/.obsidian/plugins/obsidian-qmd/qmd/index.sqlite
-<your-vault>/.obsidian/plugins/obsidian-qmd/qmd/config/index.yml
+<your-vault>/.obsidian/plugins/qmd-semantic-search/qmd/index.sqlite
+<your-vault>/.obsidian/plugins/qmd-semantic-search/qmd/config/index.yml
 ```
 
 This keeps each vault's index separate.
@@ -228,7 +229,7 @@ src/main.ts             plugin source
 main.js                 bundled production plugin
 manifest.json           Obsidian plugin manifest
 styles.css              plugin styles
-production/obsidian-qmd copy-ready production folder
+production/qmd-semantic-search copy-ready production folder
 ```
 
 ## Troubleshooting
