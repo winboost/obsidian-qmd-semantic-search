@@ -1,0 +1,13 @@
+node_modules/
+.cache/
+.DS_Store
+*.log
+
+# Inspiration/reference files, not part of this clean-room plugin
+achekulaev/
+
+# Local Obsidian/QMD runtime data if the repo is copied into a vault
+qmd/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

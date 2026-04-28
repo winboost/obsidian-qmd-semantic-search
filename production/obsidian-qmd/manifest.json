@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-qmd",
+  "name": "Obsidian QMD Local Search",
+  "version": "0.1.0",
+  "minAppVersion": "1.1.0",
+  "description": "Minimal local semantic search for Obsidian using the QMD CLI.",
+  "author": "winboost",
+  "isDesktopOnly": true
+}

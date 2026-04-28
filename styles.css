@@ -1,0 +1,187 @@
+.lqmd-search-modal-container {
+  width: min(920px, 86vw);
+}
+
+.lqmd-search-modal {
+  padding: 6px 2px 2px;
+  min-height: 360px;
+}
+
+.lqmd-search-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 1.05em;
+  outline: none;
+}
+
+.lqmd-search-input:focus {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px rgba(var(--interactive-accent-rgb), 0.25);
+}
+
+.lqmd-search-status {
+  min-height: 32px;
+  padding: 10px 2px 8px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.lqmd-search-results {
+  max-height: 58vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.lqmd-search-result {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.lqmd-search-result + .lqmd-search-result {
+  margin-top: 4px;
+}
+
+.lqmd-search-result.is-selected {
+  background: var(--background-modifier-hover);
+}
+
+.lqmd-result {
+  padding: 6px 2px;
+}
+
+.lqmd-title {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
+.lqmd-path,
+.lqmd-score {
+  color: var(--text-faint);
+  font-size: 0.8em;
+}
+
+.lqmd-snippet {
+  color: var(--text-muted);
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lqmd-howto,
+.lqmd-requirements {
+  padding: 8px 10px;
+  border-left: 3px solid var(--interactive-accent);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+}
+
+.lqmd-requirements {
+  border-left-color: var(--text-warning);
+}
+
+.lqmd-setup-status {
+  margin: 12px 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+}
+
+.lqmd-progress {
+  margin: 12px 0;
+}
+
+.lqmd-progress.is-hidden {
+  display: none;
+}
+
+.lqmd-progress-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--background-modifier-border);
+}
+
+.lqmd-progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--interactive-accent);
+  transition: width 250ms ease;
+}
+
+.lqmd-progress-fill.is-indeterminate {
+  animation: lqmd-indeterminate 1.2s ease-in-out infinite;
+}
+
+.lqmd-progress-text {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+@keyframes lqmd-indeterminate {
+  0% { transform: translateX(-110%); }
+  50% { transform: translateX(90%); }
+  100% { transform: translateX(260%); }
+}
+
+.lqmd-setup-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.lqmd-statusbar {
+  cursor: pointer;
+}
+
+.lqmd-status-box {
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.lqmd-status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 3px 0;
+}
+
+.lqmd-status-label {
+  color: var(--text-muted);
+}
+
+.lqmd-status-value {
+  color: var(--text-normal);
+  text-align: right;
+  word-break: break-all;
+}
+
+.lqmd-command {
+  margin: 10px 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 0.85em;
+  word-break: break-all;
+}
+
+.lqmd-error {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  color: var(--text-error);
+  background: var(--background-modifier-error);
+  white-space: pre-wrap;
+}
