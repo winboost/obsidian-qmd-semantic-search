@@ -1073,31 +1073,25 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
   async resolveResultLine(result: SearchResult, query: string): Promise<number | null> {
     if (!result.file) return result.line;
 
-    const inferred = await this.inferLineFromContent(result.file, result.snippet, query).catch(() => null);
+    const inferred = await this.inferLineFromContent(result.file, result.snippet, query, result.line).catch(() => null);
     if (inferred !== null) return inferred;
 
     return result.line;
   }
 
-  private async inferLineFromContent(file: TFile, snippet: string, query: string): Promise<number | null> {
+  private async inferLineFromContent(file: TFile, snippet: string, query: string, qmdLine: number | null): Promise<number | null> {
     const content = await this.app.vault.cachedRead(file);
     const lines = content.split(/\r?\n/);
     const normalize = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+    const normalizedQuery = normalize(query);
+    const terms = Array.from(new Set(normalizedQuery.split(/\s+/).filter((term) => term.length >= 2)));
     const snippetLines = snippet
       .split(/\r?\n/)
       .map((line) => normalize(line.replace(/^\s*`+|`+\s*$/g, "")))
       .filter((line) => line.length >= 4);
 
-    for (const snippetLine of snippetLines) {
-      for (let i = 0; i < lines.length; i++) {
-        const fileLine = normalize(lines[i]);
-        if (fileLine && (fileLine.includes(snippetLine) || snippetLine.includes(fileLine))) return i + 1;
-      }
-    }
-
-    const terms = Array.from(new Set(normalize(query).split(/\s+/).filter((term) => term.length >= 2)));
-    if (terms.length === 0) return null;
+    if (terms.length === 0 && snippetLines.length === 0) return qmdLine;
 
     let bestLine = -1;
     let bestScore = 0;
@@ -1107,12 +1101,23 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
       if (!fileLine) continue;
 
       let score = 0;
-      for (const term of terms) if (fileLine.includes(term)) score += 2;
+
+      // Strongest signal: exact normalized query phrase in the line. This catches
+      // cases like query "ssh config" and note text "%USERPROFILE%\\.ssh\\config",
+      // while avoiding weaker reversed wording like "config the ssh".
+      if (normalizedQuery.length >= 4 && fileLine.includes(normalizedQuery)) score += 30;
+
+      for (const term of terms) if (fileLine.includes(term)) score += 3;
+
       for (const snippetLine of snippetLines) {
+        if (fileLine.includes(snippetLine) || snippetLine.includes(fileLine)) score += 8;
         for (const term of snippetLine.split(/\s+/).filter((part) => part.length >= 3)) {
           if (fileLine.includes(term)) score += 1;
         }
       }
+
+      // QMD's line is useful but should not dominate exact phrase matches.
+      if (qmdLine !== null && i + 1 === qmdLine) score += 4;
 
       if (score > bestScore) {
         bestScore = score;
@@ -1120,7 +1125,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
       }
     }
 
-    return bestScore > 0 ? bestLine + 1 : null;
+    return bestScore > 0 ? bestLine + 1 : qmdLine;
   }
 
   findFile(resultPath: string, title?: string): TFile | null {
