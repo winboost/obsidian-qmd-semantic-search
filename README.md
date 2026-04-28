@@ -48,7 +48,9 @@ So the plugin can still work even if the `qmd` shim itself is unreliable.
 
 ## Installation
 
-Download or build these three production files:
+Download the latest `obsidian-qmd.zip` from the [GitHub Releases page](https://github.com/winboost/obsidian-qmd-semantic-search/releases), then extract it into your vault so the folder is named `obsidian-qmd`.
+
+The release contains these three production files:
 
 ```text
 main.js
@@ -56,7 +58,7 @@ manifest.json
 styles.css
 ```
 
-Copy them into your vault:
+Alternatively, build from source and copy those same three files into your vault:
 
 ```text
 <your-vault>/.obsidian/plugins/obsidian-qmd/
