@@ -469,7 +469,7 @@ class SearchModal extends Modal {
       } else {
         this.setStatus(semanticError
           ? `No matches found. Semantic search was skipped/too slow: ${semanticError}`
-          : "No matches found. Try fewer words or run “Refresh semantic index now”.");
+          : "No matches found. Try fewer words or press Ctrl/Cmd+P and run “Refresh semantic index now”.");
       }
     } catch (error) {
       if (id !== this.requestId) return;
@@ -587,7 +587,7 @@ class SetupModal extends Modal {
       text: "Requirement: this plugin needs the local QMD command-line tool installed first, for example with Bun (`bun install -g @tobilu/qmd`) or npm (`npm install -g @tobilu/qmd`). If QMD is missing, setup cannot run."
     });
     contentEl.createEl("p", {
-      text: "This vault needs a local QMD collection, an index, and embeddings before semantic search can work. Nothing is sent to a server; QMD runs locally. After setup, run “Refresh semantic index now” from time to time when you add or edit notes. The plugin does not refresh automatically, so it has no background indexing impact while you use Obsidian. The first embedding run can take a while and may download QMD's local embedding model."
+      text: "This vault needs a local QMD collection, an index, and embeddings before semantic search can work. Nothing is sent to a server; QMD runs locally. After setup, press Ctrl/Cmd+P and run “Refresh semantic index now” from time to time when you add or edit notes. The plugin does not refresh automatically, so it has no background indexing impact while you use Obsidian. The first embedding run can take a while and may download QMD's local embedding model."
     });
     contentEl.createEl("p", {
       cls: "lqmd-howto",

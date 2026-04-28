@@ -127,7 +127,7 @@ The plugin intentionally does **not** refresh automatically.
 
 That is a deliberate performance/privacy/UX choice: no background indexing, no hidden embedding jobs, no surprise CPU/GPU usage while you are writing.
 
-When you add or edit notes and want search to include them, run:
+When you add or edit notes and want search to include them, open the command palette with `Ctrl/Cmd + P` and run:
 
 ```text
 Obsidian QMD Local Search: Refresh semantic index now
@@ -249,7 +249,7 @@ Then restart Obsidian.
 
 ### Search is stale
 
-Run:
+Open the command palette with `Ctrl/Cmd + P` and run:
 
 ```text
 Refresh semantic index now
