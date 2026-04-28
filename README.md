@@ -12,7 +12,7 @@ The plugin is intentionally small: it provides the Obsidian UI, vault setup flow
 - Vault-local QMD database/config.
 - Click a result to open the matching note and jump near the relevant line.
 - Setup modal with progress, cancel/resume, and clear status.
-- Default hotkey: `Ctrl/Cmd + Alt + S`.
+- Default hotkey: `Ctrl/Cmd + Shift + S`.
 
 ## Requirements
 
@@ -104,7 +104,7 @@ You can cancel during preparation. Partial progress is kept, and you can resume 
 
 After setup, open semantic search with any of these:
 
-- `Ctrl/Cmd + Alt + S`
+- `Ctrl/Cmd + Shift + S`
 - the ribbon magnifying-glass icon
 - the bottom status bar item
 - command palette → **Semantic search**
