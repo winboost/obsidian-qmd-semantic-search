@@ -508,7 +508,8 @@ class SearchModal extends Modal {
       if (result.line !== null) meta.push(`line ${result.line}`);
       if (meta.length > 0) item.createDiv({ text: meta.join(" · "), cls: "lqmd-score" });
 
-      item.addEventListener("mousemove", () => {
+      item.addEventListener("mouseenter", () => {
+        if (this.selectedIndex === index) return;
         this.selectedIndex = index;
         this.renderResults();
       });
@@ -1160,7 +1161,13 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
   async openSearch(): Promise<void> {
     // Keep opening search instant. Do not run `qmd status` here; spawning Bun/QMD
     // can take seconds and makes the UI feel broken. Actual QMD work starts only
-    // after the user types a query.
+    // after the user types a query. If the vault has clearly never been prepared,
+    // show setup immediately using a cheap file-existence check.
+    if (!this.hasLocalQmdFiles()) {
+      new SetupModal(this.app, this, null).open();
+      return;
+    }
+
     new SearchModal(this.app, this, this.createClient()).open();
   }
 
@@ -1209,41 +1216,41 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     this.activeTaskClient = client;
 
     try {
-    await progress({ message: "Creating QMD collection if needed…", percent: 5 });
-    await client.ensureCollection(this.settings.fileMask);
+      await progress({ message: "Creating QMD collection if needed…", percent: 5 });
+      await client.ensureCollection(this.settings.fileMask);
 
-    await progress({ message: "Indexing markdown files…", percent: 15 });
-    await client.updateIndex();
+      await progress({ message: "Indexing markdown files…", percent: 15 });
+      await client.updateIndex();
 
-    const afterIndex = await client.setupStatus().catch(() => null);
-    await progress({
-      message: "Generating local embeddings… this can take a while.",
-      percent: afterIndex?.pendingEmbeddings ? 20 : null,
-      detail: afterIndex ? `${afterIndex.indexedFiles} files indexed, ${afterIndex.pendingEmbeddings} pending embeddings` : undefined
-    });
-    await client.generateEmbeddings(false, (embedProgress) => {
-      void progress({
-        ...embedProgress,
-        percent: embedProgress.percent === null ? null : 20 + Math.round(embedProgress.percent * 0.8)
+      const afterIndex = await client.setupStatus().catch(() => null);
+      await progress({
+        message: "Generating local embeddings… this can take a while.",
+        percent: afterIndex?.pendingEmbeddings ? 20 : null,
+        detail: afterIndex ? `${afterIndex.indexedFiles} files indexed, ${afterIndex.pendingEmbeddings} pending embeddings` : undefined
       });
-    });
+      await client.generateEmbeddings(false, (embedProgress) => {
+        void progress({
+          ...embedProgress,
+          percent: embedProgress.percent === null ? null : 20 + Math.round(embedProgress.percent * 0.8)
+        });
+      });
 
-    const finalStatus = await client.setupStatus();
-    await progress({
-      message: "Finished checking QMD status…",
-      percent: 100,
-      detail: `${finalStatus.indexedFiles} files indexed, ${finalStatus.embeddings} embeddings, ${finalStatus.pendingEmbeddings} pending`
-    });
+      const finalStatus = await client.setupStatus();
+      await progress({
+        message: "Finished checking QMD status…",
+        percent: 100,
+        detail: `${finalStatus.indexedFiles} files indexed, ${finalStatus.embeddings} embeddings, ${finalStatus.pendingEmbeddings} pending`
+      });
 
-    if (finalStatus.indexedFiles === 0) {
-      throw new Error("QMD finished, but indexed 0 files. Check that this vault contains markdown files and that the file mask is **/*.md.");
-    }
+      if (finalStatus.indexedFiles === 0) {
+        throw new Error("QMD finished, but indexed 0 files. Check that this vault contains markdown files and that the file mask is **/*.md.");
+      }
 
-    if (finalStatus.embeddings === 0) {
-      throw new Error("QMD finished, but created 0 embeddings. The embedding step may have failed or there may be no non-empty markdown content to embed.");
-    }
+      if (finalStatus.embeddings === 0) {
+        throw new Error("QMD finished, but created 0 embeddings. The embedding step may have failed or there may be no non-empty markdown content to embed.");
+      }
 
-    await this.refreshStatusBar();
+      await this.refreshStatusBar();
     } finally {
       if (this.activeTaskClient === client) this.activeTaskClient = null;
     }
