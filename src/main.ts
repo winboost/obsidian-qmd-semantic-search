@@ -744,7 +744,7 @@ class SettingsTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    new Setting(containerEl).setName("Obsidian QMD Semantic Search").setHeading();
+    new Setting(containerEl).setName("QMD Semantic Search").setHeading();
     containerEl.createEl("p", {
       text: "Requirement: install QMD locally first, e.g. `bun install -g @tobilu/qmd` or `npm install -g @tobilu/qmd`. This plugin only starts the local qmd executable. It does not use HTTP APIs or send vault contents anywhere. Embeddings are created by QMD, not by this plugin. Open search with the ribbon icon, the status bar item, or the command palette."
     });

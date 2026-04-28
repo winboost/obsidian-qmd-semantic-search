@@ -1,6 +1,6 @@
 {
   "id": "qmd-semantic-search",
-  "name": "Obsidian QMD Semantic Search",
+  "name": "QMD Semantic Search",
   "version": "0.1.1",
   "minAppVersion": "1.1.0",
   "description": "Search your vault locally with QMD semantic and keyword search.",

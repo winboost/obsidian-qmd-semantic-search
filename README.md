@@ -1,4 +1,4 @@
-# Obsidian QMD Semantic Search
+# QMD Semantic Search
 
 A minimal, local-first Obsidian desktop plugin for semantic search through your vault using [QMD](https://github.com/tobi/qmd).
 
@@ -76,7 +76,7 @@ Then in Obsidian:
 
 1. Open **Settings → Community plugins**.
 2. Disable **Restricted mode** if needed.
-3. Enable **Obsidian QMD Semantic Search**.
+3. Enable **QMD Semantic Search**.
 
 ## First-run setup
 
@@ -133,7 +133,7 @@ That is a deliberate performance/privacy/UX choice: no background indexing, no h
 When you add or edit notes and want search to include them, open the command palette with `Ctrl/Cmd + P` and run:
 
 ```text
-Obsidian QMD Semantic Search: Refresh semantic index now
+QMD Semantic Search: Refresh semantic index now
 ```
 
 Or open plugin settings and click:
