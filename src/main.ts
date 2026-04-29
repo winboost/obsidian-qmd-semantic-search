@@ -79,6 +79,17 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function isDatabaseLockedError(error: unknown): boolean {
+  const message = errorMessage(error).toLowerCase();
+  return message.includes("database is locked")
+    || message.includes("sqlite_busy")
+    || message.includes("sqlite_busy_recovery");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function resolveQmdCommand(configuredPath: string): QmdCommand {
   if (configuredPath !== "qmd") {
     return { executable: configuredPath, prefixArgs: [], displayName: configuredPath };
@@ -130,15 +141,16 @@ class QmdClient {
   }
 
   async status(): Promise<string> {
-    const result = await this.run(["status"], 15_000);
+    const result = await this.runWithDatabaseBusyRetry(["status"], 15_000);
     return result.stdout;
   }
 
   async setupStatus(): Promise<QmdSetupStatus> {
-    const [status, collections] = await Promise.all([
-      this.status(),
-      this.run(["collection", "list"], 30_000).catch(() => ({ stdout: "", stderr: "" }))
-    ]);
+    // Run qmd status checks sequentially. qmd initializes SQLite on every CLI
+    // invocation, and concurrent invocations can contend on PRAGMA journal_mode
+    // and fail with SQLITE_BUSY, even when both commands are only reading.
+    const status = await this.status();
+    const collections = await this.runWithDatabaseBusyRetry(["collection", "list"], 30_000).catch(() => ({ stdout: "", stderr: "" }));
 
     const indexedFiles = Number(status.match(/Total:\s+(\d+)\s+files?\s+indexed/i)?.[1] ?? 0);
     const embeddings = Number(status.match(/Vectors:\s+(\d+)\s+embedded/i)?.[1] ?? 0);
@@ -203,6 +215,21 @@ class QmdClient {
 
   private fullArgs(args: string[]): string[] {
     return this.indexName ? ["--index", this.indexName, ...args] : args;
+  }
+
+  private async runWithDatabaseBusyRetry(args: string[], timeoutMs: number, isSearch = false): Promise<{ stdout: string; stderr: string }> {
+    const maxAttempts = 6;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await this.run(args, timeoutMs, isSearch);
+      } catch (error) {
+        if (!isDatabaseLockedError(error) || attempt === maxAttempts) throw error;
+        await sleep(500 * attempt);
+      }
+    }
+
+    throw new Error("The qmd database stayed locked after multiple retries.");
   }
 
   private run(args: string[], timeoutMs: number, isSearch = false): Promise<{ stdout: string; stderr: string }> {
