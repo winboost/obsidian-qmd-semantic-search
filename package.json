@@ -1,6 +1,6 @@
 {
   "name": "obsidian-qmd-semantic-search",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Minimal local semantic search for Obsidian using the QMD CLI.",
   "main": "main.js",
   "scripts": {

@@ -1435,35 +1435,72 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
   }
 
   async ensureCollection(): Promise<void> {
+    await this.runProgressTask(
+      "Create collection",
+      "Creating this vault's qmd collection if it does not already exist.",
+      (progress) => this.ensureCollectionWithProgress(progress),
+      `The qmd collection is ready: ${this.collectionName()}`
+    );
+  }
+
+  private async ensureCollectionWithProgress(progress: (progress: QmdProgress) => void | Promise<void>): Promise<void> {
+    const client = this.createClient();
+    client.resetCancellation();
+    this.activeTaskClient = client;
+
     try {
-      await this.createClient().ensureCollection(this.settings.fileMask);
-      await this.refreshStatusBar();
-      new Notice(`The qmd collection is ready: ${this.collectionName()}`);
-    } catch (error) {
-      new Notice(errorMessage(error), 10_000);
+      await progress({ message: "Creating qmd collection if needed…", percent: 20 });
+      await client.ensureCollection(this.settings.fileMask);
+
+      const status = await client.setupStatus().catch(() => null);
+      await progress({
+        message: "Collection is ready.",
+        percent: 100,
+        detail: status ? `${status.indexedFiles} files indexed, ${status.pendingEmbeddings} pending embeddings` : this.collectionName()
+      });
+    } finally {
+      if (this.activeTaskClient === client) this.activeTaskClient = null;
+      await this.refreshStatusBar().catch(() => undefined);
     }
   }
 
   async updateIndex(): Promise<void> {
+    await this.runProgressTask(
+      "Update index only",
+      "Indexing changed markdown files without generating embeddings.",
+      (progress) => this.updateIndexWithProgress(progress),
+      "The qmd index was updated."
+    );
+  }
+
+  private async updateIndexWithProgress(progress: (progress: QmdProgress) => void | Promise<void>): Promise<void> {
+    const client = this.createClient();
+    client.resetCancellation();
+    this.activeTaskClient = client;
+
     try {
-      await this.createClient().updateIndex();
-      await this.refreshStatusBar();
-      new Notice("The qmd index was updated.");
-    } catch (error) {
-      new Notice(errorMessage(error), 10_000);
+      await progress({ message: "Indexing changed markdown files…", percent: null });
+      await client.updateIndex();
+
+      const status = await client.setupStatus().catch(() => null);
+      await progress({
+        message: "Index update complete.",
+        percent: 100,
+        detail: status ? `${status.indexedFiles} files indexed, ${status.pendingEmbeddings} pending embeddings` : undefined
+      });
+    } finally {
+      if (this.activeTaskClient === client) this.activeTaskClient = null;
+      await this.refreshStatusBar().catch(() => undefined);
     }
   }
 
   async refreshSemanticIndex(): Promise<void> {
-    const modal = new ProgressModal(
-      this.app,
+    await this.runProgressTask(
       "Refresh semantic index",
       "Updating the local qmd collection, indexing changed markdown files, and generating missing embeddings.",
       (progress) => this.refreshSemanticIndexWithProgress(progress),
       "The qmd semantic index was refreshed."
     );
-    modal.open();
-    await modal.waitForCompletion();
   }
 
   private async refreshSemanticIndexWithProgress(progress: (progress: QmdProgress) => void | Promise<void>): Promise<void> {
@@ -1504,14 +1541,38 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
   }
 
   async generateEmbeddings(force: boolean): Promise<void> {
+    await this.runProgressTask(
+      force ? "Force rebuild embeddings" : "Generate embeddings",
+      force
+        ? "Rebuilding local qmd embeddings from scratch. This can take a while."
+        : "Generating missing local qmd embeddings. This can take a while.",
+      (progress) => this.generateEmbeddingsWithProgress(force, progress),
+      "The qmd embeddings are ready."
+    );
+  }
+
+  private async generateEmbeddingsWithProgress(force: boolean, progress: (progress: QmdProgress) => void | Promise<void>): Promise<void> {
+    const client = this.createClient();
+    client.resetCancellation();
+    this.activeTaskClient = client;
+
     try {
-      new Notice(force ? "Rebuilding embeddings locally..." : "Generating embeddings locally...");
-      await this.createClient().generateEmbeddings(force);
-      await this.refreshStatusBar();
-      new Notice("The qmd embeddings are ready.");
-    } catch (error) {
-      new Notice(errorMessage(error), 10_000);
+      await client.generateEmbeddings(force, (embedProgress) => progress(embedProgress));
+    } finally {
+      if (this.activeTaskClient === client) this.activeTaskClient = null;
+      await this.refreshStatusBar().catch(() => undefined);
     }
+  }
+
+  private async runProgressTask(
+    title: string,
+    description: string,
+    task: (progress: (progress: QmdProgress) => void | Promise<void>) => Promise<void>,
+    successMessage: string
+  ): Promise<void> {
+    const modal = new ProgressModal(this.app, title, description, task, successMessage);
+    modal.open();
+    await modal.waitForCompletion();
   }
 
   async runUiTask(buttonEl: HTMLButtonElement, _label: string, task: () => Promise<void>): Promise<void> {
