@@ -9,7 +9,7 @@ import {
   normalizePath
 } from "obsidian";
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
-import { existsSync, mkdirSync } from "fs";
+import { closeSync, existsSync, mkdirSync, openSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import * as path from "path";
 
@@ -28,6 +28,11 @@ const DEFAULT_SETTINGS: PluginSettings = {
   fileMask: "**/*.md",
   maxResults: 20
 };
+
+const QMD_CLI_LOCK_DIR = path.join(homedir(), ".obsidian-qmd-semantic-search");
+const QMD_CLI_LOCK_PATH = path.join(QMD_CLI_LOCK_DIR, "qmd-cli.lock");
+const QMD_CLI_LOCK_STALE_MS = 2 * 60_000;
+const QMD_CLI_LOCK_HEARTBEAT_MS = 10_000;
 
 interface QmdJsonResult {
   file?: string;
@@ -88,6 +93,50 @@ function isDatabaseLockedError(error: unknown): boolean {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function acquireQmdCliLock(): Promise<() => void> {
+  mkdirSync(QMD_CLI_LOCK_DIR, { recursive: true });
+
+  while (true) {
+    try {
+      const fd = openSync(QMD_CLI_LOCK_PATH, "wx");
+      writeFileSync(fd, `${process.pid}\n${Date.now()}\n`);
+      closeSync(fd);
+
+      const heartbeat = window.setInterval(() => {
+        try {
+          writeFileSync(QMD_CLI_LOCK_PATH, `${process.pid}\n${Date.now()}\n`);
+        } catch {
+          // The lock may already have been released during shutdown.
+        }
+      }, QMD_CLI_LOCK_HEARTBEAT_MS);
+
+      return () => {
+        window.clearInterval(heartbeat);
+        try {
+          unlinkSync(QMD_CLI_LOCK_PATH);
+        } catch {
+          // Another process may have already removed a stale lock.
+        }
+      };
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "EEXIST") throw error;
+
+      try {
+        const ageMs = Date.now() - statSync(QMD_CLI_LOCK_PATH).mtimeMs;
+        if (ageMs > QMD_CLI_LOCK_STALE_MS) {
+          unlinkSync(QMD_CLI_LOCK_PATH);
+          continue;
+        }
+      } catch (staleCheckError) {
+        if ((staleCheckError as NodeJS.ErrnoException).code !== "ENOENT") throw staleCheckError;
+      }
+
+      await sleep(250);
+    }
+  }
 }
 
 function resolveQmdCommand(configuredPath: string): QmdCommand {
@@ -232,14 +281,17 @@ class QmdClient {
     throw new Error("The qmd database stayed locked after multiple retries.");
   }
 
-  private run(args: string[], timeoutMs: number, isSearch = false): Promise<{ stdout: string; stderr: string }> {
-    return new Promise((resolve, reject) => {
-      const child = spawn(this.qmdCommand.executable, [...this.qmdCommand.prefixArgs, ...this.fullArgs(args)], {
-        cwd: this.vaultPath,
-        env: { ...process.env, ...this.qmdEnv, NO_COLOR: "1" },
-        shell: false,
-        windowsHide: true
-      });
+  private async run(args: string[], timeoutMs: number, isSearch = false): Promise<{ stdout: string; stderr: string }> {
+    const releaseLock = await acquireQmdCliLock();
+
+    try {
+      return await new Promise((resolve, reject) => {
+        const child = spawn(this.qmdCommand.executable, [...this.qmdCommand.prefixArgs, ...this.fullArgs(args)], {
+          cwd: this.vaultPath,
+          env: { ...process.env, ...this.qmdEnv, NO_COLOR: "1" },
+          shell: false,
+          windowsHide: true
+        });
 
       this.runningProcesses.add(child);
       if (isSearch) this.currentSearch = child;
@@ -280,24 +332,27 @@ class QmdClient {
         });
       });
 
-      child.on("close", (code, signal) => {
-        finish(() => {
-          if (code === 0) {
-            resolve({ stdout, stderr });
-            return;
-          }
+        child.on("close", (code, signal) => {
+          finish(() => {
+            if (code === 0) {
+              resolve({ stdout, stderr });
+              return;
+            }
 
-          if (this.cancelled || signal) {
-            reject(new Error("The qmd command was cancelled."));
-            return;
-          }
+            if (this.cancelled || signal) {
+              reject(new Error("The qmd command was cancelled."));
+              return;
+            }
 
-          const exitStatus = code === null ? "unknown exit status" : `exit code ${code}`;
-          const detail = (stderr || stdout || exitStatus).trim();
-          reject(new Error(`The qmd command failed: ${detail}`));
+            const exitStatus = code === null ? "unknown exit status" : `exit code ${code}`;
+            const detail = (stderr || stdout || exitStatus).trim();
+            reject(new Error(`The qmd command failed: ${detail}`));
+          });
         });
       });
-    });
+    } finally {
+      releaseLock();
+    }
   }
 
   private parseJsonResults(output: string): QmdJsonResult[] {
