@@ -254,7 +254,7 @@ class QmdClient {
 
       const timer = window.setTimeout(() => {
         child.kill();
-        finish(() => reject(new Error(`QMD command timed out after ${Math.round(timeoutMs / 1000)}s`)));
+        finish(() => reject(new Error(`The qmd command timed out after ${Math.round(timeoutMs / 1000)}s`)));
       }, timeoutMs);
 
       child.stdout.on("data", (chunk: Buffer) => {
@@ -269,7 +269,7 @@ class QmdClient {
 
       child.on("error", (error: NodeJS.ErrnoException) => {
         finish(() => {
-          if (error.code === "ENOENT") reject(new Error(`QMD executable not found: ${this.qmdCommand.displayName}`));
+          if (error.code === "ENOENT") reject(new Error(`The qmd executable was not found: ${this.qmdCommand.displayName}`));
           else reject(error);
         });
       });
@@ -282,12 +282,13 @@ class QmdClient {
           }
 
           if (this.cancelled || signal) {
-            reject(new Error("QMD command cancelled."));
+            reject(new Error("The qmd command was cancelled."));
             return;
           }
 
-          const detail = (stderr || stdout || `exit code ${code}${signal ? `, signal ${signal}` : ""}`).trim();
-          reject(new Error(`QMD failed: ${detail}`));
+          const exitStatus = code === null ? "unknown exit status" : `exit code ${code}`;
+          const detail = (stderr || stdout || exitStatus).trim();
+          reject(new Error(`The qmd command failed: ${detail}`));
         });
       });
     });
@@ -296,13 +297,13 @@ class QmdClient {
   private parseJsonResults(output: string): QmdJsonResult[] {
     const json = this.extractJsonArray(output);
     const parsed = JSON.parse(json);
-    if (!Array.isArray(parsed)) throw new Error("QMD did not return a JSON array");
+    if (!Array.isArray(parsed)) throw new Error("The qmd command returned invalid search data");
     return parsed;
   }
 
   private extractJsonArray(text: string): string {
     const start = text.indexOf("[");
-    if (start < 0) throw new Error("No JSON array found in QMD output");
+    if (start < 0) throw new Error("No search results were found in qmd output");
 
     let depth = 0;
     let inString = false;
@@ -326,7 +327,7 @@ class QmdClient {
       }
     }
 
-    throw new Error("Incomplete JSON array in QMD output");
+    throw new Error("Incomplete search results in qmd output");
   }
 }
 
@@ -360,7 +361,7 @@ class SearchModal extends Modal {
       cls: "lqmd-search-input"
     });
 
-    this.statusEl = contentEl.createDiv({ cls: "lqmd-search-status", text: "Search UI is ready. Fast keyword results appear first; semantic refinement is attempted briefly in the background." });
+    this.statusEl = contentEl.createDiv({ cls: "lqmd-search-status", text: "Search is ready. Fast keyword results appear first; semantic refinement is attempted briefly in the background." });
     this.resultsEl = contentEl.createDiv({ cls: "lqmd-search-results" });
 
     this.inputEl.addEventListener("input", () => this.scheduleSearch());
@@ -405,7 +406,7 @@ class SearchModal extends Modal {
       this.results = [];
       this.selectedIndex = 0;
       this.renderResults();
-      this.setStatus("Search UI is ready. Fast keyword results appear first; semantic refinement is attempted briefly in the background.");
+      this.setStatus("Search is ready. Fast keyword results appear first; semantic refinement is attempted briefly in the background.");
       return;
     }
 
@@ -585,18 +586,18 @@ class SetupModal extends Modal {
     contentEl.createEl("h2", { text: "Prepare semantic search" });
     contentEl.createEl("p", {
       cls: "lqmd-requirements",
-      text: "Requirement: this plugin needs the local QMD command-line tool installed first, for example with Bun (`bun install -g @tobilu/qmd`) or npm (`npm install -g @tobilu/qmd`). If QMD is missing, setup cannot run."
+      text: "Requirement: this plugin needs the local qmd command-line tool installed first, for example with Bun (`bun install -g @tobilu/qmd`) or npm (`npm install -g @tobilu/qmd`). If qmd is missing, setup cannot run."
     });
     contentEl.createEl("p", {
-      text: "This vault needs a local QMD collection, an index, and embeddings before semantic search can work. Nothing is sent to a server; QMD runs locally. After setup, press Ctrl/Cmd+P and run “Refresh semantic index now” from time to time when you add or edit notes. The plugin does not refresh automatically, so it has no background indexing impact while you use Obsidian. The first embedding run can take a while and may download QMD's local embedding model."
+      text: "This vault needs a local qmd collection, an index, and embeddings before semantic search can work. Nothing is sent to a server; qmd runs locally. After setup, press Ctrl/Cmd+P and run “Refresh semantic index now” from time to time when you add or edit notes. The plugin does not refresh automatically, so it has no background indexing impact while you use Obsidian. The first embedding run can take a while and may download qmd's local embedding model."
     });
     contentEl.createEl("p", {
       cls: "lqmd-howto",
-      text: "Once ready, open semantic search with the ribbon magnifying-glass icon, the QMD status bar item, or the command palette command “Semantic search”. You can assign Ctrl/Cmd+Shift+S as a hotkey in Obsidian's hotkey settings."
+      text: "Once ready, open semantic search with the ribbon magnifying-glass icon, the qmd status bar item, or the command palette command “Semantic search”. You can assign Ctrl/Cmd+Shift+S as a hotkey in Obsidian's hotkey settings."
     });
 
-    contentEl.createDiv({ cls: "lqmd-command", text: `QMD runner: ${this.plugin.qmdDisplayName()}` });
-    contentEl.createDiv({ cls: "lqmd-command", text: `Local QMD database: ${this.plugin.qmdIndexPath()}` });
+    contentEl.createDiv({ cls: "lqmd-command", text: `qmd runner: ${this.plugin.qmdDisplayName()}` });
+    contentEl.createDiv({ cls: "lqmd-command", text: `Local qmd database: ${this.plugin.qmdIndexPath()}` });
 
     if (this.initialError) {
       contentEl.createDiv({ cls: "lqmd-error", text: `Current problem: ${this.initialError}` });
@@ -616,7 +617,10 @@ class SetupModal extends Modal {
     this.prepared = ready;
     this.startButton = buttons.createEl("button", { text: ready ? "Open search" : "Prepare search" });
     this.startButton.addClass("mod-cta");
-    this.startButton.addEventListener("click", () => this.prepared ? this.openSearchAndClose() : this.start());
+    this.startButton.addEventListener("click", () => {
+      if (this.prepared) this.openSearchAndClose();
+      else void this.start();
+    });
 
     this.closeButton = buttons.createEl("button", { text: ready ? "Close" : "Later" });
     this.closeButton.addEventListener("click", () => this.close());
@@ -651,10 +655,10 @@ class SetupModal extends Modal {
     if (this.progressFillEl) {
       if (progress.percent === null) {
         this.progressFillEl.addClass("is-indeterminate");
-        this.progressFillEl.style.width = "35%";
+        this.progressFillEl.setCssProps({ "--lqmd-progress-width": "35%" });
       } else {
         this.progressFillEl.removeClass("is-indeterminate");
-        this.progressFillEl.style.width = `${Math.max(0, Math.min(100, progress.percent))}%`;
+        this.progressFillEl.setCssProps({ "--lqmd-progress-width": `${Math.max(0, Math.min(100, progress.percent))}%` });
       }
     }
 
@@ -666,13 +670,13 @@ class SetupModal extends Modal {
 
   private openSearchAndClose(): void {
     this.close();
-    void this.plugin.openSearch();
+    this.plugin.openSearch();
   }
 
   private cancel(): void {
     if (!this.running || this.cancelling) return;
     this.cancelling = true;
-    this.updateProgress({ message: "Cancelling QMD…", percent: null, detail: "Partial progress is kept; you can resume later." });
+    this.updateProgress({ message: "Cancelling qmd…", percent: null, detail: "Partial progress is kept; you can resume later." });
     if (this.startButton) {
       this.startButton.disabled = true;
       this.startButton.textContent = "Cancelling…";
@@ -700,7 +704,7 @@ class SetupModal extends Modal {
         await this.refreshSummary();
       });
       await this.refreshSummary();
-      this.updateProgress({ message: "Semantic search is ready. Click Open search, use the ribbon icon, or run “Semantic search” from the command palette.", percent: 100 });
+      this.updateProgress({ message: "Semantic search is ready. Click the open search button, use the ribbon icon, or run “Semantic search” from the command palette.", percent: 100 });
       this.prepared = true;
       if (this.startButton) {
         this.startButton.disabled = false;
@@ -717,7 +721,7 @@ class SetupModal extends Modal {
       this.updateProgress({
         message: wasCancelled ? "Preparation cancelled." : message,
         percent: null,
-        detail: wasCancelled ? "Partial indexing/embeddings are kept. Click Resume when convenient." : undefined
+        detail: wasCancelled ? "Partial indexing/embeddings are kept. Click resume when convenient." : undefined
       });
       if (this.startButton) {
         this.startButton.disabled = false;
@@ -727,7 +731,7 @@ class SetupModal extends Modal {
         this.closeButton.disabled = false;
         this.closeButton.textContent = "Close";
       }
-      if (wasCancelled) new Notice("QMD preparation cancelled. You can resume later.");
+      if (wasCancelled) new Notice("The qmd preparation was cancelled. You can resume later.");
       else new Notice(message, 10_000);
     } finally {
       this.running = false;
@@ -745,9 +749,9 @@ class SettingsTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    new Setting(containerEl).setName("QMD Semantic Search").setHeading();
+    new Setting(containerEl).setName("Overview").setHeading();
     containerEl.createEl("p", {
-      text: "Requirement: install QMD locally first, e.g. `bun install -g @tobilu/qmd` or `npm install -g @tobilu/qmd`. This plugin only starts the local qmd executable. It does not use HTTP APIs or send vault contents anywhere. Embeddings are created by QMD, not by this plugin. Open search with the ribbon icon, the status bar item, or the command palette."
+      text: "Requirement: install qmd locally first, e.g. `bun install -g @tobilu/qmd` or `npm install -g @tobilu/qmd`. This plugin only starts the local qmd executable. It does not use network requests or send vault contents anywhere. Embeddings are created by qmd, not by this plugin. Open search with the ribbon icon, the status bar item, or the command palette."
     });
 
     new Setting(containerEl).setName("Status").setHeading();
@@ -757,8 +761,8 @@ class SettingsTab extends PluginSettingTab {
     new Setting(containerEl).setName("Configuration").setHeading();
 
     new Setting(containerEl)
-      .setName("QMD executable")
-      .setDesc("Use qmd if it is on PATH, otherwise use an absolute path.")
+      .setName("qmd executable")
+      .setDesc("Use qmd if it is available, otherwise use an absolute path.")
       .addText((text) => text
         .setPlaceholder("qmd")
         .setValue(this.plugin.settings.qmdPath)
@@ -780,7 +784,7 @@ class SettingsTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Index name")
-      .setDesc("Optional QMD index override.")
+      .setDesc("Optional qmd index override.")
       .addText((text) => text
         .setPlaceholder("default")
         .setValue(this.plugin.settings.indexName)
@@ -791,7 +795,7 @@ class SettingsTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("File mask")
-      .setDesc("Files QMD should add to the collection.")
+      .setDesc("Files qmd should add to the collection.")
       .addText((text) => text
         .setPlaceholder("**/*.md")
         .setValue(this.plugin.settings.fileMask)
@@ -816,40 +820,54 @@ class SettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Prepare vault")
       .setDesc("Create the collection, update the index, and generate embeddings in one guided local run.")
-      .addButton((button) => button.setButtonText("Prepare").setCta().onClick(() => this.plugin.showSetupModal()));
+      .addButton((button) => button.setButtonText("Prepare").setCta().onClick(() => {
+        void this.plugin.showSetupModal();
+      }));
 
     new Setting(containerEl)
-      .setName("Test QMD")
+      .setName("Test qmd")
       .setDesc("Runs qmd status.")
-      .addButton((button) => button.setButtonText("Test").onClick(() => this.plugin.runUiTask(button.buttonEl, "Test", () => this.plugin.testQmd())));
+      .addButton((button) => button.setButtonText("Test").onClick(() => {
+        void this.plugin.runUiTask(button.buttonEl, "Test", () => this.plugin.testQmd());
+      }));
 
     new Setting(containerEl)
       .setName("Create collection")
-      .setDesc("Creates this vault's QMD collection if it does not exist.")
-      .addButton((button) => button.setButtonText("Create").onClick(() => this.plugin.runUiTask(button.buttonEl, "Create", () => this.plugin.ensureCollection())));
+      .setDesc("Creates this vault's qmd collection if it does not exist.")
+      .addButton((button) => button.setButtonText("Create").onClick(() => {
+        void this.plugin.runUiTask(button.buttonEl, "Create", () => this.plugin.ensureCollection());
+      }));
 
     new Setting(containerEl)
       .setName("Refresh semantic index")
       .setDesc("Update changed markdown files and generate missing embeddings.")
-      .addButton((button) => button.setButtonText("Refresh").onClick(() => this.plugin.runUiTask(button.buttonEl, "Refresh", () => this.plugin.refreshSemanticIndex())));
+      .addButton((button) => button.setButtonText("Refresh").onClick(() => {
+        void this.plugin.runUiTask(button.buttonEl, "Refresh", () => this.plugin.refreshSemanticIndex());
+      }));
 
     new Setting(containerEl)
       .setName("Update index only")
       .setDesc("Indexes changed markdown files without generating embeddings.")
-      .addButton((button) => button.setButtonText("Update").onClick(() => this.plugin.runUiTask(button.buttonEl, "Update", () => this.plugin.updateIndex())));
+      .addButton((button) => button.setButtonText("Update").onClick(() => {
+        void this.plugin.runUiTask(button.buttonEl, "Update", () => this.plugin.updateIndex());
+      }));
 
     new Setting(containerEl)
       .setName("Generate embeddings")
-      .setDesc("Runs qmd embed locally. QMD may need to download its embedding model the first time.")
-      .addButton((button) => button.setButtonText("Embed").onClick(() => this.plugin.runUiTask(button.buttonEl, "Embed", () => this.plugin.generateEmbeddings(false))));
+      .setDesc("Runs qmd embed locally. qmd may need to download its embedding model the first time.")
+      .addButton((button) => button.setButtonText("Embed").onClick(() => {
+        void this.plugin.runUiTask(button.buttonEl, "Embed", () => this.plugin.generateEmbeddings(false));
+      }));
 
     new Setting(containerEl)
       .setName("Force rebuild embeddings")
-      .setDesc("Deletes/rebuilds QMD embeddings via qmd embed -f.")
+      .setDesc("Deletes/rebuilds qmd embeddings via qmd embed -f.")
       .addButton((button) => button
         .setWarning()
         .setButtonText("Rebuild")
-        .onClick(() => this.plugin.runUiTask(button.buttonEl, "Rebuild", () => this.plugin.generateEmbeddings(true))));
+        .onClick(() => {
+          void this.plugin.runUiTask(button.buttonEl, "Rebuild", () => this.plugin.generateEmbeddings(true));
+        }));
   }
 }
 
@@ -862,13 +880,13 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     await this.loadSettings();
 
     if (!this.getVaultPath()) {
-      new Notice("Local QMD Semantic Search is desktop-only.");
+      new Notice("Local qmd semantic search is desktop-only.");
       return;
     }
 
     this.statusBarEl = this.addStatusBarItem();
     this.statusBarEl.addClass("lqmd-statusbar");
-    this.statusBarEl.setText("QMD: checking…");
+    this.statusBarEl.setText("qmd: checking…");
     this.statusBarEl.addEventListener("click", () => this.openSearch());
 
     this.addCommand({
@@ -877,19 +895,21 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
       callback: () => this.openSearch()
     });
 
-    this.addCommand({ id: "prepare-search", name: "Prepare semantic search", callback: () => this.showSetupModal() });
-    this.addCommand({ id: "test-qmd", name: "Test QMD", callback: () => this.testQmd() });
-    this.addCommand({ id: "create-collection", name: "Create collection", callback: () => this.ensureCollection() });
-    this.addCommand({ id: "refresh-semantic-index", name: "Refresh semantic index now", callback: () => this.refreshSemanticIndex() });
-    this.addCommand({ id: "update-index", name: "Update index only", callback: () => this.updateIndex() });
-    this.addCommand({ id: "generate-embeddings", name: "Generate embeddings", callback: () => this.generateEmbeddings(false) });
-    this.addCommand({ id: "force-rebuild-embeddings", name: "Force rebuild embeddings", callback: () => this.generateEmbeddings(true) });
+    this.addCommand({ id: "prepare-search", name: "Prepare semantic search", callback: () => { void this.showSetupModal(); } });
+    this.addCommand({ id: "test-qmd", name: "Test qmd", callback: () => { void this.testQmd(); } });
+    this.addCommand({ id: "create-collection", name: "Create collection", callback: () => { void this.ensureCollection(); } });
+    this.addCommand({ id: "refresh-semantic-index", name: "Refresh semantic index now", callback: () => { void this.refreshSemanticIndex(); } });
+    this.addCommand({ id: "update-index", name: "Update index only", callback: () => { void this.updateIndex(); } });
+    this.addCommand({ id: "generate-embeddings", name: "Generate embeddings", callback: () => { void this.generateEmbeddings(false); } });
+    this.addCommand({ id: "force-rebuild-embeddings", name: "Force rebuild embeddings", callback: () => { void this.generateEmbeddings(true); } });
 
     this.addRibbonIcon("search", "Semantic search", () => this.openSearch());
     this.addSettingTab(new SettingsTab(this.app, this));
 
     this.app.workspace.onLayoutReady(() => {
-      window.setTimeout(() => this.offerSetupIfNeeded(), 0);
+      window.setTimeout(() => {
+        void this.offerSetupIfNeeded();
+      }, 0);
     });
   }
 
@@ -955,29 +975,29 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     };
   }
 
-  private setStatusBar(text: string, title = "Click to open QMD search/setup"): void {
+  private setStatusBar(text: string, title = "Click to open qmd search/setup"): void {
     if (!this.statusBarEl) return;
     this.statusBarEl.setText(text);
     this.statusBarEl.setAttr("title", title);
   }
 
   async refreshStatusBar(): Promise<void> {
-    this.setStatusBar("QMD: checking…");
+    this.setStatusBar("qmd: checking…");
     try {
       const status = await this.createClient().setupStatus();
       if (status.hasCollection && status.hasEmbeddings) {
-        this.setStatusBar(`QMD: ready (${status.embeddings} vectors)`, "Semantic search is ready. Click to search.");
+        this.setStatusBar(`qmd: ready (${status.embeddings} vectors)`, "Semantic search is ready. Click to search.");
       } else {
-        this.setStatusBar("QMD: setup needed", "Click to create the local QMD index and embeddings.");
+        this.setStatusBar("qmd: setup needed", "Click to create the local qmd index and embeddings.");
       }
     } catch (error) {
-      this.setStatusBar("QMD: error", errorMessage(error));
+      this.setStatusBar("qmd: error", errorMessage(error));
     }
   }
 
   renderSettingsStatus(containerEl: HTMLElement): void {
     containerEl.empty();
-    const box = containerEl.createDiv({ cls: "lqmd-status-box", text: "Checking QMD status…" });
+    const box = containerEl.createDiv({ cls: "lqmd-status-box", text: "Checking qmd status…" });
 
     const renderRow = (parent: HTMLElement, label: string, value: string): void => {
       const row = parent.createDiv({ cls: "lqmd-status-row" });
@@ -988,7 +1008,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     this.createClient().setupStatus()
       .then((status) => {
         box.empty();
-        renderRow(box, "QMD runner", this.qmdDisplayName());
+        renderRow(box, "qmd runner", this.qmdDisplayName());
         renderRow(box, "Database", this.qmdIndexPath());
         renderRow(box, "Config", this.qmdConfigPath());
         renderRow(box, "Vault", this.app.vault.getName());
@@ -1001,7 +1021,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
       })
       .catch((error) => {
         box.empty();
-        renderRow(box, "QMD runner", this.qmdDisplayName());
+        renderRow(box, "qmd runner", this.qmdDisplayName());
         renderRow(box, "Database", this.qmdIndexPath());
         renderRow(box, "Config", this.qmdConfigPath());
         renderRow(box, "Vault", this.app.vault.getName());
@@ -1019,7 +1039,9 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
 
     const prepare = buttons.createEl("button", { text: "Prepare search" });
     prepare.addClass("mod-cta");
-    prepare.addEventListener("click", () => this.showSetupModal());
+    prepare.addEventListener("click", () => {
+      void this.showSetupModal();
+    });
 
     const search = buttons.createEl("button", { text: "Open search" });
     search.addEventListener("click", () => this.openSearch());
@@ -1158,7 +1180,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     }) ?? null;
   }
 
-  async openSearch(): Promise<void> {
+  openSearch(): void {
     // Keep opening search instant. Do not run `qmd status` here; spawning Bun/QMD
     // can take seconds and makes the UI feel broken. Actual QMD work starts only
     // after the user types a query. If the vault has clearly never been prepared,
@@ -1176,20 +1198,20 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
       // Fresh install/vault: avoid waiting for Bun/QMD startup just to discover
       // that the vault-local index/config do not exist yet.
       if (!this.hasLocalQmdFiles()) {
-        this.setStatusBar("QMD: setup needed", "Click to create the local QMD index and embeddings.");
+        this.setStatusBar("qmd: setup needed", "Click to create the local qmd index and embeddings.");
         new SetupModal(this.app, this, null).open();
         return;
       }
 
       const status = await this.createClient().setupStatus();
       if (!status.hasCollection || !status.hasEmbeddings) {
-        this.setStatusBar("QMD: setup needed", "Click to create the local QMD index and embeddings.");
+        this.setStatusBar("qmd: setup needed", "Click to create the local qmd index and embeddings.");
         new SetupModal(this.app, this, status).open();
       } else {
-        this.setStatusBar(`QMD: ready (${status.embeddings} vectors)`, "Semantic search is ready. Click to search.");
+        this.setStatusBar(`qmd: ready (${status.embeddings} vectors)`, "Semantic search is ready. Click to search.");
       }
     } catch (error) {
-      this.setStatusBar("QMD: error", errorMessage(error));
+      this.setStatusBar("qmd: error", errorMessage(error));
       new SetupModal(this.app, this, null, errorMessage(error)).open();
     }
   }
@@ -1216,7 +1238,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     this.activeTaskClient = client;
 
     try {
-      await progress({ message: "Creating QMD collection if needed…", percent: 5 });
+      await progress({ message: "Creating qmd collection if needed…", percent: 5 });
       await client.ensureCollection(this.settings.fileMask);
 
       await progress({ message: "Indexing markdown files…", percent: 15 });
@@ -1237,17 +1259,17 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
 
       const finalStatus = await client.setupStatus();
       await progress({
-        message: "Finished checking QMD status…",
+        message: "Finished checking qmd status…",
         percent: 100,
         detail: `${finalStatus.indexedFiles} files indexed, ${finalStatus.embeddings} embeddings, ${finalStatus.pendingEmbeddings} pending`
       });
 
       if (finalStatus.indexedFiles === 0) {
-        throw new Error("QMD finished, but indexed 0 files. Check that this vault contains markdown files and that the file mask is **/*.md.");
+        throw new Error("qmd finished, but indexed 0 files. Check that this vault contains markdown files and that the file mask is **/*.md.");
       }
 
       if (finalStatus.embeddings === 0) {
-        throw new Error("QMD finished, but created 0 embeddings. The embedding step may have failed or there may be no non-empty markdown content to embed.");
+        throw new Error("qmd finished, but created 0 embeddings. The embedding step may have failed or there may be no non-empty markdown content to embed.");
       }
 
       await this.refreshStatusBar();
@@ -1259,7 +1281,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
   async testQmd(): Promise<void> {
     try {
       const status = await this.createClient().status();
-      new Notice(status.trim() || "QMD responded.", 10_000);
+      new Notice(status.trim() || "qmd responded.", 10_000);
     } catch (error) {
       new Notice(errorMessage(error), 10_000);
     }
@@ -1269,7 +1291,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     try {
       await this.createClient().ensureCollection(this.settings.fileMask);
       await this.refreshStatusBar();
-      new Notice(`QMD collection is ready: ${this.collectionName()}`);
+      new Notice(`The qmd collection is ready: ${this.collectionName()}`);
     } catch (error) {
       new Notice(errorMessage(error), 10_000);
     }
@@ -1279,7 +1301,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
     try {
       await this.createClient().updateIndex();
       await this.refreshStatusBar();
-      new Notice("QMD index updated.");
+      new Notice("The qmd index was updated.");
     } catch (error) {
       new Notice(errorMessage(error), 10_000);
     }
@@ -1287,13 +1309,13 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
 
   async refreshSemanticIndex(): Promise<void> {
     try {
-      this.setStatusBar("QMD: refreshing…", "Updating local QMD index and embeddings.");
+      this.setStatusBar("qmd: refreshing…", "Updating local qmd index and embeddings.");
       const client = this.createClient();
       await client.ensureCollection(this.settings.fileMask);
       await client.updateIndex();
       await client.generateEmbeddings(false);
       await this.refreshStatusBar();
-      new Notice("QMD semantic index refreshed.");
+      new Notice("The qmd semantic index was refreshed.");
     } catch (error) {
       await this.refreshStatusBar();
       new Notice(errorMessage(error), 10_000);
@@ -1305,7 +1327,7 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
       new Notice(force ? "Rebuilding embeddings locally..." : "Generating embeddings locally...");
       await this.createClient().generateEmbeddings(force);
       await this.refreshStatusBar();
-      new Notice("QMD embeddings are ready.");
+      new Notice("The qmd embeddings are ready.");
     } catch (error) {
       new Notice(errorMessage(error), 10_000);
     }
