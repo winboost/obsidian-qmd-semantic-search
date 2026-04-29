@@ -1,7 +1,7 @@
 {
   "id": "qmd-semantic-search",
   "name": "QMD Semantic Search",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minAppVersion": "1.1.0",
   "description": "Search your vault locally with QMD semantic and keyword search.",
   "author": "winboost",

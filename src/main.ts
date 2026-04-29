@@ -166,47 +166,26 @@ class QmdClient {
     await this.run(["update"], 30 * 60_000);
   }
 
-  async generateEmbeddings(force: boolean, onProgress?: (progress: QmdProgress) => void): Promise<void> {
+  async generateEmbeddings(force: boolean, onProgress?: (progress: QmdProgress) => void | Promise<void>): Promise<void> {
     const before = await this.setupStatus().catch(() => null);
-    const startVectors = force ? 0 : before?.embeddings ?? 0;
-    const expectedWork = Math.max(1, force ? before?.embeddings ?? before?.pendingEmbeddings ?? 1 : before?.pendingEmbeddings ?? 1);
 
-    onProgress?.({
+    await onProgress?.({
       message: "Generating local embeddings…",
       percent: before?.pendingEmbeddings === 0 && !force ? null : 0,
       detail: before ? `${before.embeddings} vectors stored, ${before.pendingEmbeddings} pending` : undefined
     });
 
-    let stopped = false;
-    const poll = window.setInterval(() => {
-      this.setupStatus()
-        .then((status) => {
-          const completed = Math.max(0, status.embeddings - startVectors);
-          const percent = Math.max(0, Math.min(99, Math.round((completed / expectedWork) * 100)));
-          onProgress?.({
-            message: "Generating local embeddings…",
-            percent,
-            detail: `${status.embeddings} vectors stored${status.pendingEmbeddings > 0 ? `, ${status.pendingEmbeddings} pending` : ""}`
-          });
-        })
-        .catch(() => undefined);
-    }, 2500);
+    // Do not poll qmd status while `qmd embed` is running. qmd uses SQLite, and
+    // concurrent status probes can contend with the embedding process and surface
+    // confusing "database is locked" sqlite-vec errors.
+    await this.run(force ? ["embed", "-f"] : ["embed"], 2 * 60 * 60_000);
 
-    try {
-      await this.run(force ? ["embed", "-f"] : ["embed"], 2 * 60 * 60_000);
-    } finally {
-      stopped = true;
-      window.clearInterval(poll);
-    }
-
-    if (stopped) {
-      const after = await this.setupStatus().catch(() => null);
-      onProgress?.({
-        message: "Embeddings complete.",
-        percent: 100,
-        detail: after ? `${after.embeddings} vectors stored` : undefined
-      });
-    }
+    const after = await this.setupStatus().catch(() => null);
+    await onProgress?.({
+      message: "Embeddings complete.",
+      percent: 100,
+      detail: after ? `${after.embeddings} vectors stored` : undefined
+    });
   }
 
   async semanticSearch(query: string, timeoutMs = 20_000): Promise<QmdJsonResult[]> {
@@ -1250,12 +1229,10 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
         percent: afterIndex?.pendingEmbeddings ? 20 : null,
         detail: afterIndex ? `${afterIndex.indexedFiles} files indexed, ${afterIndex.pendingEmbeddings} pending embeddings` : undefined
       });
-      await client.generateEmbeddings(false, (embedProgress) => {
-        void progress({
-          ...embedProgress,
-          percent: embedProgress.percent === null ? null : 20 + Math.round(embedProgress.percent * 0.8)
-        });
-      });
+      await client.generateEmbeddings(false, (embedProgress) => progress({
+        ...embedProgress,
+        percent: embedProgress.percent === null ? null : 20 + Math.round(embedProgress.percent * 0.8)
+      }));
 
       const finalStatus = await client.setupStatus();
       await progress({
