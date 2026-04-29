@@ -801,6 +801,94 @@ class SetupModal extends Modal {
   }
 }
 
+class ProgressModal extends Modal {
+  private statusEl: HTMLElement | null = null;
+  private progressFillEl: HTMLElement | null = null;
+  private progressTextEl: HTMLElement | null = null;
+  private closeButton: HTMLButtonElement | null = null;
+  private resolveCompletion: (() => void) | null = null;
+  private readonly completion = new Promise<void>((resolve) => {
+    this.resolveCompletion = resolve;
+  });
+
+  constructor(
+    app: App,
+    private readonly title: string,
+    private readonly description: string,
+    private readonly task: (progress: (progress: QmdProgress) => void | Promise<void>) => Promise<void>,
+    private readonly successMessage: string
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("lqmd-setup");
+
+    contentEl.createEl("h2", { text: this.title });
+    contentEl.createEl("p", { text: this.description });
+    this.statusEl = contentEl.createDiv({ cls: "lqmd-setup-status", text: "Starting…" });
+
+    const progressEl = contentEl.createDiv({ cls: "lqmd-progress" });
+    const progressTrack = progressEl.createDiv({ cls: "lqmd-progress-track" });
+    this.progressFillEl = progressTrack.createDiv({ cls: "lqmd-progress-fill" });
+    this.progressTextEl = progressEl.createDiv({ cls: "lqmd-progress-text", text: "0%" });
+
+    const buttons = contentEl.createDiv({ cls: "lqmd-setup-buttons" });
+    this.closeButton = buttons.createEl("button", { text: "Working…" });
+    this.closeButton.disabled = true;
+    this.closeButton.addEventListener("click", () => this.close());
+
+    void this.run();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+
+  waitForCompletion(): Promise<void> {
+    return this.completion;
+  }
+
+  private updateProgress(progress: QmdProgress): void {
+    if (this.statusEl) this.statusEl.setText(progress.message);
+
+    if (this.progressFillEl) {
+      if (progress.percent === null) {
+        this.progressFillEl.addClass("is-indeterminate");
+        this.progressFillEl.setCssProps({ "--lqmd-progress-width": "35%" });
+      } else {
+        this.progressFillEl.removeClass("is-indeterminate");
+        this.progressFillEl.setCssProps({ "--lqmd-progress-width": `${Math.max(0, Math.min(100, progress.percent))}%` });
+      }
+    }
+
+    if (this.progressTextEl) {
+      const percentText = progress.percent === null ? "working…" : `${Math.round(progress.percent)}%`;
+      this.progressTextEl.setText(progress.detail ? `${percentText} — ${progress.detail}` : percentText);
+    }
+  }
+
+  private async run(): Promise<void> {
+    try {
+      await this.task((progress) => this.updateProgress(progress));
+      this.updateProgress({ message: this.successMessage, percent: 100 });
+      new Notice(this.successMessage);
+    } catch (error) {
+      const message = errorMessage(error);
+      this.updateProgress({ message, percent: null });
+      new Notice(message, 10_000);
+    } finally {
+      if (this.closeButton) {
+        this.closeButton.disabled = false;
+        this.closeButton.textContent = "Close";
+      }
+      this.resolveCompletion?.();
+    }
+  }
+}
+
 class SettingsTab extends PluginSettingTab {
   constructor(app: App, private readonly plugin: LocalQmdSemanticSearchPlugin) {
     super(app, plugin);
@@ -1367,17 +1455,51 @@ export default class LocalQmdSemanticSearchPlugin extends Plugin {
   }
 
   async refreshSemanticIndex(): Promise<void> {
+    const modal = new ProgressModal(
+      this.app,
+      "Refresh semantic index",
+      "Updating the local qmd collection, indexing changed markdown files, and generating missing embeddings.",
+      (progress) => this.refreshSemanticIndexWithProgress(progress),
+      "The qmd semantic index was refreshed."
+    );
+    modal.open();
+    await modal.waitForCompletion();
+  }
+
+  private async refreshSemanticIndexWithProgress(progress: (progress: QmdProgress) => void | Promise<void>): Promise<void> {
+    this.setStatusBar("qmd: refreshing…", "Updating local qmd index and embeddings.");
+    const client = this.createClient();
+    client.resetCancellation();
+    this.activeTaskClient = client;
+
     try {
-      this.setStatusBar("qmd: refreshing…", "Updating local qmd index and embeddings.");
-      const client = this.createClient();
+      await progress({ message: "Creating qmd collection if needed…", percent: 10 });
       await client.ensureCollection(this.settings.fileMask);
+
+      await progress({ message: "Indexing changed markdown files…", percent: 35 });
       await client.updateIndex();
-      await client.generateEmbeddings(false);
-      await this.refreshStatusBar();
-      new Notice("The qmd semantic index was refreshed.");
-    } catch (error) {
-      await this.refreshStatusBar();
-      new Notice(errorMessage(error), 10_000);
+
+      const afterIndex = await client.setupStatus().catch(() => null);
+      await progress({
+        message: "Generating missing embeddings… this can take a while.",
+        percent: null,
+        detail: afterIndex ? `${afterIndex.indexedFiles} files indexed, ${afterIndex.pendingEmbeddings} pending embeddings` : undefined
+      });
+
+      await client.generateEmbeddings(false, (embedProgress) => progress({
+        ...embedProgress,
+        percent: embedProgress.percent === null ? null : 60 + Math.round(embedProgress.percent * 0.35)
+      }));
+
+      const finalStatus = await client.setupStatus();
+      await progress({
+        message: "Refresh complete.",
+        percent: 100,
+        detail: `${finalStatus.indexedFiles} files indexed, ${finalStatus.embeddings} embeddings, ${finalStatus.pendingEmbeddings} pending`
+      });
+    } finally {
+      if (this.activeTaskClient === client) this.activeTaskClient = null;
+      await this.refreshStatusBar().catch(() => undefined);
     }
   }
 
